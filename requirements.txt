@@ -5,3 +5,5 @@ sqlalchemy
 psycopg[binary]
 python-multipart
 pydantic
+qrcode
+pillow
