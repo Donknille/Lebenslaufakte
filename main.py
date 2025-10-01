@@ -18,28 +18,39 @@ import models
 import schemas
 import crud
 
-# -----------------------------
-# Datenbank (Supabase/Postgres)
-# -----------------------------
+# =========================
+# Datenbank (Supabase / PG)
+# =========================
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
 
+# Falls jemand +psycopg in der URL hat -> auf +psycopg2 umbiegen
+if SQLALCHEMY_DATABASE_URL.startswith("postgresql+psycopg://"):
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace(
+        "postgresql+psycopg://", "postgresql+psycopg2://"
+    )
+
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
-    engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL,
+        connect_args={"check_same_thread": False},
+    )
 else:
-    # Vercel + Supabase
-    engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
+    # Serverless-freundliche Einstellungen
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL,
+        pool_pre_ping=True,
+        pool_size=5,
+        max_overflow=0,
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# WICHTIG: KEIN create_all() beim Import!
-# models.Base.metadata.create_all(bind=engine)
-
-# -----------------------------
+# =========
 # FastAPI
-# -----------------------------
+# =========
 app = FastAPI(title="Maschinenhandbuch", description="Machine Manual Web Application")
 
-# Sanfter DB-Start-Check (crasht nicht, loggt nur)
+# DB-Ping beim Start (loggt nur, crasht nicht)
 @app.on_event("startup")
 def _startup_check():
     try:
@@ -48,7 +59,7 @@ def _startup_check():
     except Exception as e:
         print("DB startup check failed:", repr(e))
 
-# Statische Dateien/Templates (nur lesen – nichts schreiben!)
+# Statische Dateien & Templates (Ordner müssen existieren)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
@@ -59,15 +70,15 @@ def get_db():
     finally:
         db.close()
 
-# -----------------------------
-# Admin-Auth (Basic)
-# -----------------------------
+# ==========
+# Security
+# ==========
 security = HTTPBasic()
 
 def verify_admin_credentials(credentials: HTTPBasicCredentials = Depends(security)):
-    correct_username = secrets.compare_digest(credentials.username, "admin")
-    correct_password = secrets.compare_digest(credentials.password, "admin123")
-    if not (correct_username and correct_password):
+    user_ok = secrets.compare_digest(credentials.username, "admin")
+    pw_ok = secrets.compare_digest(credentials.password, "admin123")
+    if not (user_ok and pw_ok):
         raise HTTPException(
             status_code=401,
             detail="Invalid admin credentials",
@@ -75,16 +86,35 @@ def verify_admin_credentials(credentials: HTTPBasicCredentials = Depends(securit
         )
     return credentials.username
 
-# -----------------------------
-# QR-Codes: KEIN Dateischreiben
-# -----------------------------
+# ================
+# Health / Setup
+# ================
+@app.get("/healthz")
+def healthz():
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql("SELECT 1")
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": repr(e)}
+
+# Einmalig Tabellen anlegen. Nach Ausführung wieder entfernen.
+@app.get("/__init_db_once")
+def __init_db_once():
+    try:
+        models.Base.metadata.create_all(bind=engine)
+        return {"ok": True, "msg": "tables created"}
+    except Exception as e:
+        return {"ok": False, "error": repr(e)}
+
+# =========================
+# QR-Codes (ohne Dateisystem)
+# =========================
 def generate_machine_qr_path(slug: str, base_url: str) -> str:
-    """Gibt den dynamischen QR-Endpunkt zurück (PNG via Streaming)."""
     return f"/qr/{slug}.png"
 
 @app.get("/qr/{slug}.png")
 async def qr_png(slug: str, request: Request):
-    """Erzeugt den QR-Code on-the-fly und liefert ihn als PNG aus (keine Datei)."""
     base_url = str(request.base_url).rstrip("/")
     qr_url = f"{base_url}/m/{slug}"
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
@@ -96,36 +126,13 @@ async def qr_png(slug: str, request: Request):
     buf.seek(0)
     return StreamingResponse(buf, media_type="image/png")
 
-# -----------------------------
-# Einmaliger Tabellen-Init (nur zum Setup)
-# -----------------------------
-@app.post("/admin/init-db")
-def init_db(admin_user: str = Depends(verify_admin_credentials)):
-    try:
-        models.Base.metadata.create_all(bind=engine)
-        return {"ok": True, "msg": "Tables created."}
-    except Exception as e:
-        return {"ok": False, "error": repr(e)}
-
-# Optional: Healthcheck
-@app.get("/healthz")
-def healthz():
-    try:
-        with engine.connect() as conn:
-            conn.exec_driver_sql("SELECT 1")
-        return {"ok": True}
-    except Exception as e:
-        return {"ok": False, "error": repr(e)}
-
-# -----------------------------
+# =========
 # Routes
-# -----------------------------
+# =========
 @app.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, search: Optional[str] = None, db: Session = Depends(get_db)):
-    if search:
-        machines = crud.search_machines_with_open_issues(db, search)
-    else:
-        machines = crud.get_machines_with_open_issues(db, limit=10)
+    machines = crud.search_machines_with_open_issues(db, search) if search \
+        else crud.get_machines_with_open_issues(db, limit=10)
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "machines": machines,
@@ -153,10 +160,8 @@ async def create_machine(
         description=description or None
     )
     machine = crud.create_machine(db, machine_data)
-
     base_url = str(request.base_url).rstrip("/")
     qr_path = generate_machine_qr_path(str(machine.public_slug), base_url)
-
     return templates.TemplateResponse("machine_created.html", {
         "request": request,
         "machine": machine,
@@ -168,14 +173,11 @@ async def machine_detail(request: Request, machine_id: int, db: Session = Depend
     machine = crud.get_machine(db, machine_id)
     if not machine:
         raise HTTPException(status_code=404, detail="Machine not found")
-
     open_issues = crud.get_open_issues(db, int(machine.id))
     closed_issues = crud.get_closed_issues(db, int(machine.id), limit=10)
     maintenance = crud.get_maintenance_records(db, int(machine.id))
-
     base_url = str(request.base_url).rstrip("/")
     qr_path = generate_machine_qr_path(str(machine.public_slug), base_url)
-
     return templates.TemplateResponse("machine_detail.html", {
         "request": request,
         "machine": machine,
@@ -185,17 +187,15 @@ async def machine_detail(request: Request, machine_id: int, db: Session = Depend
         "qr_path": qr_path
     })
 
-# Public machine access
+# Public machine view
 @app.get("/m/{slug}", response_class=HTMLResponse)
 async def public_machine(request: Request, slug: str, db: Session = Depends(get_db)):
     machine = crud.get_machine_by_slug(db, slug)
     if not machine:
         raise HTTPException(status_code=404, detail="Machine not found")
-
     open_issues = crud.get_open_issues(db, int(machine.id))
     closed_issues = crud.get_closed_issues(db, int(machine.id), limit=5)
     maintenance = crud.get_maintenance_records(db, int(machine.id))
-
     return templates.TemplateResponse("public_machine.html", {
         "request": request,
         "machine": machine,
@@ -204,21 +204,16 @@ async def public_machine(request: Request, slug: str, db: Session = Depends(get_
         "maintenance": maintenance
     })
 
-# Issue management
+# Issues
 @app.get("/issues/new", response_class=HTMLResponse)
 async def new_issue_form(request: Request, machine: Optional[str] = None, db: Session = Depends(get_db)):
     machine_obj = None
     if machine:
-        if machine.isdigit():
-            machine_obj = crud.get_machine(db, int(machine))
-        else:
-            machine_obj = crud.get_machine_by_slug(db, machine)
-
+        machine_obj = crud.get_machine(db, int(machine)) if machine.isdigit() \
+            else crud.get_machine_by_slug(db, machine)
     if not machine_obj:
         raise HTTPException(status_code=404, detail="Machine not found")
-
     employees = crud.get_employees(db, limit=1000, include_inactive=False)
-
     return templates.TemplateResponse("issue_new.html", {
         "request": request,
         "machine": machine_obj,
@@ -241,11 +236,9 @@ async def create_issue(
             reported_datetime = datetime.fromisoformat(reported_at.replace('T', ' '))
         except ValueError:
             reported_datetime = datetime.utcnow()
-
     employee = crud.get_employee(db, reported_by)
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
-
     issue_data = schemas.IssueCreate(
         machine_id=machine_id,
         title=title,
@@ -253,10 +246,8 @@ async def create_issue(
         reported_by=f"{employee.first_name} {employee.last_name}",
         reported_at=reported_datetime
     )
-
     issue = crud.create_issue(db, issue_data)
     machine = crud.get_machine(db, machine_id)
-
     return templates.TemplateResponse("issue_created.html", {
         "request": request,
         "issue": issue,
@@ -268,11 +259,9 @@ async def issue_detail(request: Request, issue_id: int, db: Session = Depends(ge
     issue = crud.get_issue(db, issue_id)
     if not issue:
         raise HTTPException(status_code=404, detail="Issue not found")
-
     updates = crud.get_issue_updates(db, issue_id)
     machine = crud.get_machine(db, int(issue.machine_id))
     employees = crud.get_employees(db, limit=1000, include_inactive=False)
-
     return templates.TemplateResponse("issue_detail.html", {
         "request": request,
         "issue": issue,
@@ -292,18 +281,15 @@ async def create_issue_update(
     status_enum = None
     if status_change and status_change in [s.value for s in models.IssueStatus]:
         status_enum = models.IssueStatus(status_change)
-
     employee = crud.get_employee(db, author)
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
-
     update_data = schemas.IssueUpdateCreate(
         issue_id=issue_id,
         note=note,
         author=f"{employee.first_name} {employee.last_name}",
         status_change=status_enum
     )
-
     crud.create_issue_update(db, update_data)
     return {"success": True}
 
@@ -317,14 +303,10 @@ async def close_issue(issue_id: int, db: Session = Depends(get_db)):
 async def new_maintenance_form(request: Request, machine: Optional[str] = None, db: Session = Depends(get_db)):
     machine_obj = None
     if machine:
-        if machine.isdigit():
-            machine_obj = crud.get_machine(db, int(machine))
-        else:
-            machine_obj = crud.get_machine_by_slug(db, machine)
-
+        machine_obj = crud.get_machine(db, int(machine)) if machine.isdigit() \
+            else crud.get_machine_by_slug(db, machine)
     if not machine_obj:
         raise HTTPException(status_code=404, detail="Machine not found")
-
     return templates.TemplateResponse("maintenance_new.html", {
         "request": request,
         "machine": machine_obj
@@ -347,14 +329,12 @@ async def create_maintenance(
             performed_datetime = datetime.fromisoformat(performed_at.replace('T', ' '))
         except ValueError:
             performed_datetime = datetime.utcnow()
-
     next_due_datetime = None
     if next_due_at:
         try:
             next_due_datetime = datetime.fromisoformat(next_due_at.replace('T', ' '))
         except ValueError:
             pass
-
     maintenance_data = schemas.MaintenanceCreate(
         machine_id=machine_id,
         title=title,
@@ -363,10 +343,8 @@ async def create_maintenance(
         performed_at=performed_datetime,
         next_due_at=next_due_datetime
     )
-
     maintenance = crud.create_maintenance(db, maintenance_data)
     machine = crud.get_machine(db, machine_id)
-
     return templates.TemplateResponse("maintenance_created.html", {
         "request": request,
         "maintenance": maintenance,
@@ -379,13 +357,10 @@ async def export_issues_csv(machine_id: int, db: Session = Depends(get_db)):
     machine = crud.get_machine(db, machine_id)
     if not machine:
         raise HTTPException(status_code=404, detail="Machine not found")
-
     issues = crud.get_machine_issues(db, machine_id)
-
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';')
     writer.writerow(['ID', 'Titel', 'Beschreibung', 'Gemeldet von', 'Gemeldet am', 'Status', 'Geschlossen am'])
-
     for issue in issues:
         writer.writerow([
             issue.id,
@@ -396,7 +371,6 @@ async def export_issues_csv(machine_id: int, db: Session = Depends(get_db)):
             issue.status.value,
             issue.closed_at.strftime('%Y-%m-%d %H:%M:%S') if issue.closed_at else ''
         ])
-
     output.seek(0)
     return StreamingResponse(
         io.BytesIO(output.getvalue().encode('utf-8')),
@@ -409,23 +383,19 @@ async def export_maintenance_csv(machine_id: int, db: Session = Depends(get_db))
     machine = crud.get_machine(db, machine_id)
     if not machine:
         raise HTTPException(status_code=404, detail="Machine not found")
-
-    maintenance_records = crud.get_all_maintenance_records(db, machine_id)
-
+    records = crud.get_all_maintenance_records(db, machine_id)
     output = io.StringIO()
     writer = csv.writer(output, delimiter=';')
     writer.writerow(['ID', 'Titel', 'Beschreibung', 'Durchgeführt von', 'Durchgeführt am', 'Nächste Wartung'])
-
-    for record in maintenance_records:
+    for r in records:
         writer.writerow([
-            record.id,
-            record.title,
-            record.description or '',
-            record.performed_by,
-            record.performed_at.strftime('%Y-%m-%d %H:%M:%S'),
-            record.next_due_at.strftime('%Y-%m-%d %H:%M:%S') if record.next_due_at else ''
+            r.id,
+            r.title,
+            r.description or '',
+            r.performed_by,
+            r.performed_at.strftime('%Y-%m-%d %H:%M:%S'),
+            r.next_due_at.strftime('%Y-%m-%d %H:%M:%S') if r.next_due_at else ''
         ])
-
     output.seek(0)
     return StreamingResponse(
         io.BytesIO(output.getvalue().encode('utf-8')),
@@ -452,5 +422,4 @@ async def api_create_issue(machine_id: int, issue: schemas.IssueCreate, db: Sess
     return crud.create_issue(db, issue)
 
 if __name__ == "__main__":
-    # nur lokal relevant
     uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True)
