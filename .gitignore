@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Env/Secrets
+.env
+.env.*
+
+# Replit/Lockfiles
+.replit
+uv.lock
+
+# Lokale DBs / Dateien
+app.db
+
+# OS
+.DS_Store
+Thumbs.db
