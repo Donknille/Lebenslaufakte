@@ -3,6 +3,5 @@ uvicorn
 jinja2
 sqlalchemy
 psycopg[binary]
-vercel-asgi
 python-multipart
 pydantic
