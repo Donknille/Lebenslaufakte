@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Maschine erstellt - Maschinenhandbuch{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
+        Maschine "{{ machine.name }}" wurde erfolgreich angelegt!
+    </div>
+    
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 class="text-xl font-semibold mb-4">QR-Code für öffentlichen Zugang</h2>
+        <div class="text-center">
+            <img src="{{ qr_path }}" alt="QR Code" class="mx-auto mb-4">
+            <p class="text-sm text-gray-600 mb-4">
+                Öffentlicher Link: <a href="/m/{{ machine.public_slug }}" class="text-blue-600 hover:underline">/m/{{ machine.public_slug }}</a>
+            </p>
+            <a href="{{ qr_path }}" download="qr_{{ machine.public_slug }}.png" 
+               class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                QR-Code herunterladen
+            </a>
+        </div>
+    </div>
+    
+    <div class="flex justify-center space-x-4">
+        <a href="/machines/{{ machine.id }}" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+            Zur Admin-Ansicht
+        </a>
+        <a href="/m/{{ machine.public_slug }}" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
+            Zur öffentlichen Ansicht
+        </a>
+        <a href="/" class="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600">
+            Zum Dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}

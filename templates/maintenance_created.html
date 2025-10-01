@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Wartung eingetragen - Maschinenhandbuch{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
+        Wartung "{{ maintenance.title }}" wurde erfolgreich eingetragen!
+    </div>
+    
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 class="text-xl font-semibold mb-4">Wartungsdetails</h2>
+        <dl class="space-y-2">
+            <div>
+                <dt class="font-medium text-gray-600">Titel:</dt>
+                <dd>{{ maintenance.title }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-600">Durchgeführt von:</dt>
+                <dd>{{ maintenance.performed_by }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-600">Durchgeführt am:</dt>
+                <dd>{{ maintenance.performed_at.strftime('%d.%m.%Y %H:%M') }}</dd>
+            </div>
+            {% if maintenance.description %}
+            <div>
+                <dt class="font-medium text-gray-600">Beschreibung:</dt>
+                <dd>{{ maintenance.description }}</dd>
+            </div>
+            {% endif %}
+            {% if maintenance.next_due_at %}
+            <div>
+                <dt class="font-medium text-gray-600">Nächste Wartung fällig:</dt>
+                <dd>{{ maintenance.next_due_at.strftime('%d.%m.%Y %H:%M') }}</dd>
+            </div>
+            {% endif %}
+        </dl>
+    </div>
+    
+    <div class="flex justify-center">
+        <a href="/m/{{ machine.public_slug }}" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+            Zurück zur Maschine
+        </a>
+    </div>
+</div>
+{% endblock %}

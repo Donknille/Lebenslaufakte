@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {% if action == "create" %}
+        Neuen Mitarbeiter anlegen - Maschinenhandbuch
+    {% else %}
+        Mitarbeiter bearbeiten - Maschinenhandbuch
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">
+            {% if action == "create" %}
+                Neuen Mitarbeiter anlegen
+            {% else %}
+                Mitarbeiter bearbeiten
+            {% endif %}
+        </h1>
+        <a href="/admin/employees" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+            Zurück zur Übersicht
+        </a>
+    </div>
+    
+    <!-- Error Messages -->
+    {% if error_message %}
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+            <p><strong>Fehler:</strong> {{ error_message }}</p>
+        </div>
+    {% endif %}
+    
+    <!-- Employee Form -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="p-6 border-b">
+            <h2 class="text-xl font-semibold">
+                {% if action == "create" %}
+                    Mitarbeiterdaten eingeben
+                {% else %}
+                    Mitarbeiterdaten bearbeiten
+                {% endif %}
+            </h2>
+        </div>
+        
+        <div class="p-6">
+            <form method="post" action="{% if action == 'create' %}/admin/employees{% else %}/admin/employees/{{ employee.id }}{% endif %}" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- First Name -->
+                    <div>
+                        <label for="first_name" class="block text-sm font-medium text-gray-700 mb-2">
+                            Vorname <span class="text-red-500">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            name="first_name" 
+                            id="first_name"
+                            value="{% if form_data %}{{ form_data.first_name }}{% elif employee %}{{ employee.first_name }}{% endif %}"
+                            required
+                            maxlength="100"
+                            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                            placeholder="Vorname des Mitarbeiters"
+                        >
+                    </div>
+                    
+                    <!-- Last Name -->
+                    <div>
+                        <label for="last_name" class="block text-sm font-medium text-gray-700 mb-2">
+                            Nachname <span class="text-red-500">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            name="last_name" 
+                            id="last_name"
+                            value="{% if form_data %}{{ form_data.last_name }}{% elif employee %}{{ employee.last_name }}{% endif %}"
+                            required
+                            maxlength="100"
+                            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                            placeholder="Nachname des Mitarbeiters"
+                        >
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Email -->
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                            E-Mail-Adresse <span class="text-red-500">*</span>
+                        </label>
+                        <input 
+                            type="email" 
+                            name="email" 
+                            id="email"
+                            value="{% if form_data %}{{ form_data.email }}{% elif employee %}{{ employee.email }}{% endif %}"
+                            required
+                            maxlength="200"
+                            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                            placeholder="mitarbeiter@unternehmen.de"
+                        >
+                    </div>
+                    
+                    <!-- Phone -->
+                    <div>
+                        <label for="phone" class="block text-sm font-medium text-gray-700 mb-2">
+                            Telefonnummer
+                        </label>
+                        <input 
+                            type="tel" 
+                            name="phone" 
+                            id="phone"
+                            value="{% if form_data %}{{ form_data.phone or '' }}{% elif employee %}{{ employee.phone or '' }}{% endif %}"
+                            maxlength="50"
+                            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                            placeholder="+49 123 456789 (optional)"
+                        >
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Employee ID -->
+                    <div>
+                        <label for="{% if action == 'edit' %}employee_id_field{% else %}employee_id{% endif %}" class="block text-sm font-medium text-gray-700 mb-2">
+                            Mitarbeiter-ID <span class="text-red-500">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            name="{% if action == 'edit' %}employee_id_field{% else %}employee_id{% endif %}" 
+                            id="{% if action == 'edit' %}employee_id_field{% else %}employee_id{% endif %}"
+                            value="{% if form_data %}{{ form_data.employee_id }}{% elif employee %}{{ employee.employee_id }}{% endif %}"
+                            required
+                            maxlength="50"
+                            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                            placeholder="MA001 (eindeutige ID)"
+                        >
+                        <p class="text-xs text-gray-500 mt-1">Eindeutige Kennung für den Mitarbeiter</p>
+                    </div>
+                    
+                    <!-- Status -->
+                    <div>
+                        <label for="is_active" class="block text-sm font-medium text-gray-700 mb-2">
+                            Status <span class="text-red-500">*</span>
+                        </label>
+                        <select 
+                            name="is_active" 
+                            id="is_active"
+                            required
+                            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                        >
+                            {% set current_active = (form_data.is_active if form_data else employee.is_active if employee else 1) %}
+                            <option value="1" {% if current_active == 1 %}selected{% endif %}>Aktiv</option>
+                            <option value="0" {% if current_active == 0 %}selected{% endif %}>Inaktiv</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Department -->
+                    <div>
+                        <label for="department" class="block text-sm font-medium text-gray-700 mb-2">
+                            Abteilung
+                        </label>
+                        <input 
+                            type="text" 
+                            name="department" 
+                            id="department"
+                            value="{% if form_data %}{{ form_data.department or '' }}{% elif employee %}{{ employee.department or '' }}{% endif %}"
+                            maxlength="100"
+                            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                            placeholder="z.B. Produktion, IT, Verwaltung (optional)"
+                        >
+                    </div>
+                    
+                    <!-- Position -->
+                    <div>
+                        <label for="position" class="block text-sm font-medium text-gray-700 mb-2">
+                            Position
+                        </label>
+                        <input 
+                            type="text" 
+                            name="position" 
+                            id="position"
+                            value="{% if form_data %}{{ form_data.position or '' }}{% elif employee %}{{ employee.position or '' }}{% endif %}"
+                            maxlength="100"
+                            class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                            placeholder="z.B. Teamleiter, Entwickler, Techniker (optional)"
+                        >
+                    </div>
+                </div>
+                
+                <!-- Submit Buttons -->
+                <div class="flex justify-end space-x-4 pt-6 border-t">
+                    <a href="/admin/employees" class="bg-gray-300 text-gray-700 px-6 py-2 rounded hover:bg-gray-400">
+                        Abbrechen
+                    </a>
+                    <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+                        {% if action == "create" %}
+                            Mitarbeiter anlegen
+                        {% else %}
+                            Änderungen speichern
+                        {% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Help Information -->
+    <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+        <h3 class="text-lg font-medium text-blue-900 mb-3">Hilfe</h3>
+        <div class="text-sm text-blue-800 space-y-2">
+            <p><strong>Pflichtfelder:</strong> Vorname, Nachname, E-Mail-Adresse und Mitarbeiter-ID müssen ausgefüllt werden.</p>
+            <p><strong>Mitarbeiter-ID:</strong> Muss eindeutig sein und dient zur internen Identifikation (z.B. MA001, EMP123).</p>
+            <p><strong>E-Mail-Adresse:</strong> Muss eindeutig und gültig sein.</p>
+            <p><strong>Status:</strong> Inaktive Mitarbeiter sind im System gespeichert, aber werden als deaktiviert markiert.</p>
+            <p><strong>Abteilung & Position:</strong> Optionale Felder zur besseren Organisation und Zuordnung.</p>
+        </div>
+    </div>
+    
+    {% if employee and action == "edit" %}
+    <!-- Employee Information -->
+    <div class="mt-8 bg-gray-50 border border-gray-200 rounded-lg p-6">
+        <h3 class="text-lg font-medium text-gray-900 mb-3">Mitarbeiterinformationen</h3>
+        <div class="text-sm text-gray-700 space-y-1">
+            <p><strong>Erstellt:</strong> {{ employee.created_at.strftime('%d.%m.%Y um %H:%M') }} Uhr</p>
+            <p><strong>Letzte Änderung:</strong> {{ employee.updated_at.strftime('%d.%m.%Y um %H:%M') }} Uhr</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Form validation
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const employeeId = document.getElementById('{% if action == "edit" %}employee_id_field{% else %}employee_id{% endif %}');
+    const email = document.getElementById('email');
+    
+    // Real-time validation for employee ID format
+    employeeId.addEventListener('input', function() {
+        const value = this.value.trim();
+        if (value && !/^[A-Za-z0-9_-]+$/.test(value)) {
+            this.setCustomValidity('Mitarbeiter-ID darf nur Buchstaben, Zahlen, Bindestriche und Unterstriche enthalten.');
+        } else {
+            this.setCustomValidity('');
+        }
+    });
+    
+    // Form submission validation
+    form.addEventListener('submit', function(e) {
+        let isValid = true;
+        let errorMessage = '';
+        
+        // Check required fields
+        const firstName = document.getElementById('first_name').value.trim();
+        const lastName = document.getElementById('last_name').value.trim();
+        const emailValue = email.value.trim();
+        const employeeIdValue = employeeId.value.trim();
+        
+        if (!firstName) {
+            isValid = false;
+            errorMessage += 'Vorname ist erforderlich. ';
+        }
+        
+        if (!lastName) {
+            isValid = false;
+            errorMessage += 'Nachname ist erforderlich. ';
+        }
+        
+        if (!emailValue) {
+            isValid = false;
+            errorMessage += 'E-Mail-Adresse ist erforderlich. ';
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+            isValid = false;
+            errorMessage += 'E-Mail-Adresse ist ungültig. ';
+        }
+        
+        if (!employeeIdValue) {
+            isValid = false;
+            errorMessage += 'Mitarbeiter-ID ist erforderlich. ';
+        } else if (!/^[A-Za-z0-9_-]+$/.test(employeeIdValue)) {
+            isValid = false;
+            errorMessage += 'Mitarbeiter-ID enthält ungültige Zeichen. ';
+        }
+        
+        if (!isValid) {
+            e.preventDefault();
+            alert('Bitte korrigieren Sie folgende Fehler: ' + errorMessage);
+        }
+    });
+});
+</script>
+{% endblock %}

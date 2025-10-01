@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}{{ machine.name }} - Maschinenhandbuch{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">{{ machine.name }}</h1>
+        <div class="space-x-2">
+            <a href="/issues/new?machine={{ machine.id }}" 
+               class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                Störung melden
+            </a>
+            <a href="/maintenance/new?machine={{ machine.id }}" 
+               class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                Wartung eintragen
+            </a>
+        </div>
+    </div>
+
+    <!-- Machine Info -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <h2 class="text-xl font-semibold mb-4">Stammdaten</h2>
+                <dl class="space-y-2">
+                    <div>
+                        <dt class="font-medium text-gray-600">Name:</dt>
+                        <dd>{{ machine.name }}</dd>
+                    </div>
+                    {% if machine.serial_number %}
+                    <div>
+                        <dt class="font-medium text-gray-600">Seriennummer:</dt>
+                        <dd>{{ machine.serial_number }}</dd>
+                    </div>
+                    {% endif %}
+                    {% if machine.location %}
+                    <div>
+                        <dt class="font-medium text-gray-600">Standort:</dt>
+                        <dd>{{ machine.location }}</dd>
+                    </div>
+                    {% endif %}
+                    <div>
+                        <dt class="font-medium text-gray-600">Öffentlicher Link:</dt>
+                        <dd><a href="/m/{{ machine.public_slug }}" class="text-blue-600 hover:underline">/m/{{ machine.public_slug }}</a></dd>
+                    </div>
+                </dl>
+            </div>
+            <div class="text-center">
+                <h3 class="text-lg font-medium mb-4">QR-Code</h3>
+                <img src="{{ qr_path }}" alt="QR Code" class="mx-auto mb-4 max-w-48">
+                <a href="{{ qr_path }}" download="qr_{{ machine.public_slug }}.png" 
+                   class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">
+                    Download
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="border-b">
+            <nav class="flex space-x-8 px-6">
+                <button class="py-4 border-b-2 border-blue-500 text-blue-600 font-medium">
+                    Offene Störungen ({{ open_issues|length }})
+                </button>
+            </nav>
+        </div>
+
+        <!-- Open Issues -->
+        <div class="p-6">
+            {% if open_issues %}
+                <div class="space-y-4">
+                    {% for issue in open_issues %}
+                    <div class="border rounded-lg p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="font-semibold">{{ issue.title }}</h4>
+                            <div class="flex items-center space-x-2">
+                                {% if issue.status.value == 'open' %}
+                                    <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">Offen</span>
+                                {% elif issue.status.value == 'in_progress' %}
+                                    <span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">In Bearbeitung</span>
+                                {% endif %}
+                                <span class="text-red-600 font-mono text-sm" data-start="{{ issue.reported_at.isoformat() }}">
+                                    Lädt...
+                                </span>
+                            </div>
+                        </div>
+                        <p class="text-gray-600 text-sm mb-2">{{ issue.description or 'Keine Beschreibung' }}</p>
+                        <p class="text-xs text-gray-500">
+                            Gemeldet von {{ issue.reported_by }} am {{ issue.reported_at.strftime('%d.%m.%Y %H:%M') }}
+                        </p>
+                        <div class="mt-3 space-x-2">
+                            <a href="/issues/{{ issue.id }}" 
+                               class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
+                                Details
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-gray-500 text-center py-8">Keine offenen Störungen</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Export Buttons -->
+    <div class="mt-6 flex justify-center space-x-4">
+        <a href="/machines/{{ machine.id }}/export/issues" 
+           class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+            Störungen exportieren (CSV)
+        </a>
+        <a href="/machines/{{ machine.id }}/export/maintenance" 
+           class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+            Wartungen exportieren (CSV)
+        </a>
+    </div>
+</div>
+{% endblock %}

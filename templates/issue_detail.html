@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}{{ issue.title }} - Störungsdetails{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">Störungsdetails</h1>
+        <a href="/m/{{ machine.public_slug }}" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+            Zurück zur Maschine
+        </a>
+    </div>
+
+    <!-- Issue Header -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h2 class="text-2xl font-semibold text-red-800">{{ issue.title }}</h2>
+                <p class="text-gray-600">Maschine: {{ machine.name }}</p>
+            </div>
+            <div class="text-right">
+                {% if issue.status.value == 'open' %}
+                    <span class="bg-red-100 text-red-800 px-3 py-1 rounded text-sm font-medium">Offen</span>
+                {% elif issue.status.value == 'in_progress' %}
+                    <span class="bg-orange-100 text-orange-800 px-3 py-1 rounded text-sm font-medium">In Bearbeitung</span>
+                {% elif issue.status.value == 'closed' %}
+                    <span class="bg-green-100 text-green-800 px-3 py-1 rounded text-sm font-medium">Geschlossen</span>
+                {% endif %}
+                {% if issue.status.value != 'closed' %}
+                    <p class="text-xs font-mono text-red-600 mt-1">
+                        Läuft seit: <span data-start="{{ issue.reported_at.isoformat() }}">Lädt...</span>
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+                <span class="font-medium text-gray-600">Gemeldet von:</span> {{ issue.reported_by }}
+            </div>
+            <div>
+                <span class="font-medium text-gray-600">Gemeldet am:</span> {{ issue.reported_at.strftime('%d.%m.%Y %H:%M') }}
+            </div>
+            {% if issue.closed_at %}
+            <div>
+                <span class="font-medium text-gray-600">Geschlossen am:</span> {{ issue.closed_at.strftime('%d.%m.%Y %H:%M') }}
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if issue.description %}
+        <div class="mt-4">
+            <span class="font-medium text-gray-600">Beschreibung:</span>
+            <p class="mt-1">{{ issue.description }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Timeline -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h3 class="text-xl font-semibold mb-4">Timeline</h3>
+        
+        <div class="space-y-4">
+            <!-- Initial Report -->
+            <div class="border-l-4 border-red-500 pl-4">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h4 class="font-medium">Störung gemeldet</h4>
+                        <p class="text-sm text-gray-600">von {{ issue.reported_by }}</p>
+                        <p class="text-xs text-gray-500">{{ issue.reported_at.strftime('%d.%m.%Y %H:%M') }}</p>
+                    </div>
+                    <span class="bg-red-100 text-red-800 text-xs px-2 py-1 rounded">Gemeldet</span>
+                </div>
+                {% if issue.description %}
+                    <p class="mt-2 text-sm">{{ issue.description }}</p>
+                {% endif %}
+            </div>
+            
+            <!-- Updates -->
+            {% for update in updates %}
+            <div class="border-l-4 border-blue-500 pl-4">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h4 class="font-medium">Update</h4>
+                        <p class="text-sm text-gray-600">von {{ update.author }}</p>
+                        <p class="text-xs text-gray-500">{{ update.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+                    </div>
+                    {% if update.status_change %}
+                        {% if update.status_change.value == 'in_progress' %}
+                            <span class="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">In Bearbeitung</span>
+                        {% elif update.status_change.value == 'closed' %}
+                            <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Geschlossen</span>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                <p class="mt-2 text-sm">{{ update.note }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Add Update Form -->
+    {% if issue.status.value != 'closed' %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h3 class="text-lg font-semibold mb-4">Neues Update hinzufügen</h3>
+        
+        <div 
+            hx-target="#update-form" 
+            hx-swap="innerHTML"
+            id="update-form"
+        >
+            <form 
+                hx-post="/issues/{{ issue.id }}/updates"
+                hx-trigger="submit"
+                hx-swap="afterend"
+                class="space-y-4"
+            >
+                <div>
+                    <label for="note" class="block text-sm font-medium text-gray-700 mb-2">
+                        Notiz *
+                    </label>
+                    <textarea 
+                        id="note" 
+                        name="note"
+                        required
+                        rows="3"
+                        placeholder="Beschreibung der durchgeführten Arbeiten oder Erkenntnisse..."
+                        class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                    ></textarea>
+                </div>
+                
+                <div>
+                    <label for="author" class="block text-sm font-medium text-gray-700 mb-2">
+                        Update von *
+                    </label>
+                    <select 
+                        id="author" 
+                        name="author"
+                        required
+                        class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                    >
+                        <option value="">-- Mitarbeiter auswählen --</option>
+                        {% for employee in employees %}
+                            <option value="{{ employee.id }}">{{ employee.first_name }} {{ employee.last_name }} ({{ employee.employee_id }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="status_change" class="block text-sm font-medium text-gray-700 mb-2">
+                        Status ändern (optional)
+                    </label>
+                    <select 
+                        id="status_change" 
+                        name="status_change"
+                        class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                    >
+                        <option value="">-- Status beibehalten --</option>
+                        <option value="in_progress">In Bearbeitung</option>
+                        <option value="closed">Geschlossen</option>
+                    </select>
+                </div>
+                
+                <div class="flex justify-between">
+                    <form 
+                        hx-post="/issues/{{ issue.id }}/close"
+                        hx-confirm="Möchten Sie diese Störung wirklich als geschlossen markieren?"
+                        class="inline"
+                    >
+                        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                            Als geschlossen markieren
+                        </button>
+                    </form>
+                    
+                    <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+                        Update hinzufügen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

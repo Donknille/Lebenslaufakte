@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}{{ machine.name }} - Öffentlich{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Header -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800">{{ machine.name }}</h1>
+                {% if machine.location %}
+                    <p class="text-gray-600">Standort: {{ machine.location }}</p>
+                {% endif %}
+                {% if machine.serial_number %}
+                    <p class="text-gray-600">Seriennummer: {{ machine.serial_number }}</p>
+                {% endif %}
+            </div>
+            <div class="space-x-2">
+                <a href="/issues/new?machine={{ machine.public_slug }}" 
+                   class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
+                    Störung melden
+                </a>
+                <a href="/maintenance/new?machine={{ machine.public_slug }}" 
+                   class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                    Wartung eintragen
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Open Issues -->
+    <div class="bg-white rounded-lg shadow mb-6">
+        <div class="p-6 border-b">
+            <h2 class="text-xl font-semibold text-red-600">Offene Störungen ({{ open_issues|length }})</h2>
+        </div>
+        
+        {% if open_issues %}
+            <div class="p-6 space-y-4">
+                {% for issue in open_issues %}
+                <div class="border rounded-lg p-4 bg-red-50">
+                    <div class="flex justify-between items-start mb-2">
+                        <h4 class="font-semibold text-red-800">{{ issue.title }}</h4>
+                        <div class="flex items-center space-x-2">
+                            {% if issue.status.value == 'open' %}
+                                <span class="bg-red-200 text-red-800 text-xs px-2 py-1 rounded">Offen</span>
+                            {% elif issue.status.value == 'in_progress' %}
+                                <span class="bg-orange-200 text-orange-800 text-xs px-2 py-1 rounded">In Bearbeitung</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <p class="text-gray-700 text-sm mb-2">{{ issue.description or 'Keine Beschreibung' }}</p>
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="text-xs text-gray-600">
+                                Gemeldet von {{ issue.reported_by }} am {{ issue.reported_at.strftime('%d.%m.%Y %H:%M') }}
+                            </p>
+                            <p class="text-xs font-mono text-red-600 font-semibold">
+                                Läuft seit: <span data-start="{{ issue.reported_at.isoformat() }}">Lädt...</span>
+                            </p>
+                        </div>
+                        <div class="space-x-2">
+                            <a href="/issues/{{ issue.id }}" 
+                               class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
+                                Details & Updates
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="p-6 text-center text-gray-500">
+                <p class="text-lg">🎉 Aktuell keine offenen Störungen!</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Closed Issues History -->
+    {% if closed_issues %}
+    <div class="bg-white rounded-lg shadow mb-6">
+        <div class="p-6 border-b">
+            <h3 class="text-lg font-semibold text-gray-600">Letzte geschlossene Störungen</h3>
+        </div>
+        <div class="p-6 space-y-3">
+            {% for issue in closed_issues %}
+            <div class="border rounded p-3 bg-gray-50">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h5 class="font-medium">{{ issue.title }}</h5>
+                        <p class="text-xs text-gray-500">
+                            Geschlossen am {{ issue.closed_at.strftime('%d.%m.%Y %H:%M') }}
+                        </p>
+                    </div>
+                    <span class="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">Geschlossen</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Maintenance -->
+    {% if maintenance %}
+    <div class="bg-white rounded-lg shadow">
+        <div class="p-6 border-b">
+            <h3 class="text-lg font-semibold text-blue-600">Letzte Wartungen</h3>
+        </div>
+        <div class="p-6 space-y-3">
+            {% for record in maintenance %}
+            <div class="border rounded p-3 bg-blue-50">
+                <h5 class="font-medium text-blue-800">{{ record.title }}</h5>
+                <p class="text-sm text-gray-600">{{ record.description or 'Keine Details' }}</p>
+                <p class="text-xs text-gray-500">
+                    Durchgeführt von {{ record.performed_by }} am {{ record.performed_at.strftime('%d.%m.%Y %H:%M') }}
+                </p>
+                {% if record.next_due_at %}
+                <p class="text-xs text-blue-600">
+                    Nächste Wartung fällig: {{ record.next_due_at.strftime('%d.%m.%Y') }}
+                </p>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

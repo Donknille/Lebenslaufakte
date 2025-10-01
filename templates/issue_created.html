@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Störung gemeldet - Maschinenhandbuch{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
+        Störung "{{ issue.title }}" wurde erfolgreich gemeldet!
+    </div>
+    
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 class="text-xl font-semibold mb-4">Störungsdetails</h2>
+        <dl class="space-y-2">
+            <div>
+                <dt class="font-medium text-gray-600">Titel:</dt>
+                <dd>{{ issue.title }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-600">Gemeldet von:</dt>
+                <dd>{{ issue.reported_by }}</dd>
+            </div>
+            <div>
+                <dt class="font-medium text-gray-600">Zeitpunkt:</dt>
+                <dd>{{ issue.reported_at.strftime('%d.%m.%Y %H:%M') }}</dd>
+            </div>
+            {% if issue.description %}
+            <div>
+                <dt class="font-medium text-gray-600">Beschreibung:</dt>
+                <dd>{{ issue.description }}</dd>
+            </div>
+            {% endif %}
+        </dl>
+    </div>
+    
+    <div class="flex justify-center space-x-4">
+        <a href="/m/{{ machine.public_slug }}" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+            Zurück zur Maschine
+        </a>
+        <a href="/issues/{{ issue.id }}" class="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">
+            Störung verfolgen
+        </a>
+    </div>
+</div>
+{% endblock %}

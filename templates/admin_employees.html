@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block title %}Mitarbeiterverwaltung - Maschinenhandbuch{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-3xl font-bold text-gray-800">Mitarbeiterverwaltung</h1>
+        <div class="flex space-x-4">
+            <a href="/admin" class="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
+                Zurück zum Admin
+            </a>
+            <a href="/admin/employees/new" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                Neuen Mitarbeiter anlegen
+            </a>
+        </div>
+    </div>
+    
+    <!-- Success/Error Messages -->
+    {% if success_message %}
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-6">
+            {{ success_message }}
+        </div>
+    {% endif %}
+    
+    {% if error_message %}
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-6">
+            {{ error_message }}
+        </div>
+    {% endif %}
+    
+    <!-- Search and Filter Form -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6">
+        <form method="get" class="flex gap-4 items-end">
+            <div class="flex-1">
+                <label for="search" class="block text-sm font-medium text-gray-700 mb-2">Suchen</label>
+                <input 
+                    type="text" 
+                    name="search" 
+                    id="search"
+                    value="{{ search_query }}" 
+                    placeholder="Suche nach Name, E-Mail, Mitarbeiter-ID, Abteilung oder Position..."
+                    class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                >
+            </div>
+            <div>
+                <label class="flex items-center space-x-2">
+                    <input 
+                        type="checkbox" 
+                        name="include_inactive" 
+                        value="true"
+                        {% if include_inactive %}checked{% endif %}
+                        class="rounded"
+                    >
+                    <span class="text-sm text-gray-700">Inaktive Mitarbeiter anzeigen</span>
+                </label>
+            </div>
+            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+                Suchen
+            </button>
+            {% if search_query %}
+                <a href="/admin/employees" class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400">
+                    Reset
+                </a>
+            {% endif %}
+        </form>
+    </div>
+    
+    <!-- Employees List -->
+    <div class="bg-white rounded-lg shadow">
+        <div class="p-6 border-b">
+            <h2 class="text-xl font-semibold">
+                {% if search_query %}
+                    Suchergebnisse für "{{ search_query }}"
+                {% else %}
+                    Alle Mitarbeiter
+                {% endif %}
+                ({{ employees|length }} gefunden)
+            </h2>
+        </div>
+        
+        {% if employees %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Mitarbeiter
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                E-Mail & Telefon
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Abteilung/Position
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Status
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Erstellt
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Aktionen
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for employee in employees %}
+                        <tr class="hover:bg-gray-50 {% if employee.is_active == 0 %}bg-gray-100 opacity-75{% endif %}">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="flex-shrink-0 h-10 w-10">
+                                        <div class="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                                            <span class="text-sm font-medium text-gray-700">
+                                                {{ employee.first_name[0] }}{{ employee.last_name[0] }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="ml-4">
+                                        <div class="text-sm font-medium text-gray-900">
+                                            {{ employee.first_name }} {{ employee.last_name }}
+                                        </div>
+                                        <div class="text-sm text-gray-500">
+                                            ID: {{ employee.employee_id }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                <div>{{ employee.email }}</div>
+                                {% if employee.phone %}
+                                    <div class="text-gray-500">{{ employee.phone }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                {% if employee.department %}
+                                    <div>{{ employee.department }}</div>
+                                {% endif %}
+                                {% if employee.position %}
+                                    <div class="text-gray-500">{{ employee.position }}</div>
+                                {% endif %}
+                                {% if not employee.department and not employee.position %}
+                                    <span class="text-gray-400">Nicht angegeben</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if employee.is_active == 1 %}
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                        Aktiv
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">
+                                        Inaktiv
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ employee.created_at.strftime('%d.%m.%Y') }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <div class="flex space-x-2">
+                                    <a href="/admin/employees/{{ employee.id }}" 
+                                       class="text-indigo-600 hover:text-indigo-900 px-2 py-1 text-xs bg-indigo-100 rounded">
+                                        Bearbeiten
+                                    </a>
+                                    {% if employee.is_active == 1 %}
+                                        <button onclick="confirmAction('delete', {{ employee.id }}, '{{ employee.first_name }} {{ employee.last_name }}')"
+                                                class="text-red-600 hover:text-red-900 px-2 py-1 text-xs bg-red-100 rounded">
+                                            Deaktivieren
+                                        </button>
+                                    {% else %}
+                                        <button onclick="confirmAction('reactivate', {{ employee.id }}, '{{ employee.first_name }} {{ employee.last_name }}')"
+                                                class="text-green-600 hover:text-green-900 px-2 py-1 text-xs bg-green-100 rounded">
+                                            Reaktivieren
+                                        </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="p-8 text-center">
+                <div class="text-gray-500 text-lg mb-4">
+                    {% if search_query %}
+                        Keine Mitarbeiter für "{{ search_query }}" gefunden.
+                    {% else %}
+                        Noch keine Mitarbeiter angelegt.
+                    {% endif %}
+                </div>
+                <a href="/admin/employees/new" class="bg-green-600 text-white px-6 py-3 rounded hover:bg-green-700">
+                    Ersten Mitarbeiter anlegen
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div id="confirmModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 class="text-lg font-medium text-gray-900 mb-4" id="modalTitle">Aktion bestätigen</h3>
+        <p class="text-sm text-gray-500 mb-6" id="modalMessage"></p>
+        <div class="flex justify-end space-x-3">
+            <button onclick="closeModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400">
+                Abbrechen
+            </button>
+            <button onclick="executeAction()" class="px-4 py-2 rounded text-white" id="confirmButton">
+                Bestätigen
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentAction = '';
+let currentEmployeeId = '';
+let currentEmployeeName = '';
+
+function confirmAction(action, employeeId, employeeName) {
+    currentAction = action;
+    currentEmployeeId = employeeId;
+    currentEmployeeName = employeeName;
+    
+    const modal = document.getElementById('confirmModal');
+    const title = document.getElementById('modalTitle');
+    const message = document.getElementById('modalMessage');
+    const button = document.getElementById('confirmButton');
+    
+    if (action === 'delete') {
+        title.textContent = 'Mitarbeiter deaktivieren';
+        message.textContent = `Möchten Sie den Mitarbeiter "${employeeName}" wirklich deaktivieren? Diese Aktion kann rückgängig gemacht werden.`;
+        button.textContent = 'Deaktivieren';
+        button.className = 'px-4 py-2 rounded text-white bg-red-600 hover:bg-red-700';
+    } else if (action === 'reactivate') {
+        title.textContent = 'Mitarbeiter reaktivieren';
+        message.textContent = `Möchten Sie den Mitarbeiter "${employeeName}" wieder aktivieren?`;
+        button.textContent = 'Reaktivieren';
+        button.className = 'px-4 py-2 rounded text-white bg-green-600 hover:bg-green-700';
+    }
+    
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeModal() {
+    const modal = document.getElementById('confirmModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+function executeAction() {
+    const url = currentAction === 'delete' 
+        ? `/admin/employees/${currentEmployeeId}/delete`
+        : `/admin/employees/${currentEmployeeId}/reactivate`;
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Reload the page to show updated status
+            window.location.reload();
+        } else {
+            alert('Fehler: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ein Fehler ist aufgetreten.');
+    });
+    
+    closeModal();
+}
+
+// Close modal when clicking outside
+document.getElementById('confirmModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+</script>
+{% endblock %}

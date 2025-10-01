@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Wartung eintragen - {{ machine.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+    <h1 class="text-3xl font-bold text-gray-800 mb-2">Wartung eintragen</h1>
+    <p class="text-gray-600 mb-8">Maschine: {{ machine.name }}</p>
+    
+    <div class="bg-white rounded-lg shadow p-6">
+        <form method="post" action="/maintenance" class="space-y-6">
+            <input type="hidden" name="machine_id" value="{{ machine.id }}">
+            
+            <div>
+                <label for="title" class="block text-sm font-medium text-gray-700 mb-2">
+                    Wartungstitel *
+                </label>
+                <input 
+                    type="text" 
+                    id="title" 
+                    name="title" 
+                    required
+                    placeholder="z.B. Routine-Inspektion, Ölwechsel"
+                    class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                >
+            </div>
+            
+            <div>
+                <label for="description" class="block text-sm font-medium text-gray-700 mb-2">
+                    Beschreibung
+                </label>
+                <textarea 
+                    id="description" 
+                    name="description"
+                    rows="4"
+                    placeholder="Details zur durchgeführten Wartung..."
+                    class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                ></textarea>
+            </div>
+            
+            <div>
+                <label for="performed_by" class="block text-sm font-medium text-gray-700 mb-2">
+                    Durchgeführt von *
+                </label>
+                <input 
+                    type="text" 
+                    id="performed_by" 
+                    name="performed_by" 
+                    required
+                    placeholder="Techniker-Name oder Firma"
+                    class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                >
+            </div>
+            
+            <div>
+                <label for="performed_at" class="block text-sm font-medium text-gray-700 mb-2">
+                    Durchgeführt am
+                </label>
+                <input 
+                    type="datetime-local" 
+                    id="performed_at" 
+                    name="performed_at"
+                    class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                >
+                <p class="text-xs text-gray-500 mt-1">Leer lassen für aktuellen Zeitpunkt</p>
+            </div>
+            
+            <div>
+                <label for="next_due_at" class="block text-sm font-medium text-gray-700 mb-2">
+                    Nächste Wartung fällig am
+                </label>
+                <input 
+                    type="datetime-local" 
+                    id="next_due_at" 
+                    name="next_due_at"
+                    class="w-full border border-gray-300 rounded px-3 py-2 focus:outline-none focus:border-blue-500"
+                >
+                <p class="text-xs text-gray-500 mt-1">Optional: Termin für nächste Wartung</p>
+            </div>
+            
+            <div class="flex justify-between">
+                <a href="/m/{{ machine.public_slug }}" class="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600">
+                    Abbrechen
+                </a>
+                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">
+                    Wartung eintragen
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Set current datetime as default
+document.addEventListener('DOMContentLoaded', function() {
+    const now = new Date();
+    const datetime = now.toISOString().slice(0, 16);
+    document.getElementById('performed_at').value = datetime;
+});
+</script>
+{% endblock %}
