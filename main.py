@@ -26,18 +26,27 @@ SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
     engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 else:
-    # Vercel + Supabase: normaler Engine, kein connect_args
+    # Vercel + Supabase
     engine = create_engine(SQLALCHEMY_DATABASE_URL, pool_pre_ping=True)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Tabellen anlegen (ok für MVP; später Alembic nutzen)
-models.Base.metadata.create_all(bind=engine)
+# WICHTIG: KEIN create_all() beim Import!
+# models.Base.metadata.create_all(bind=engine)
 
 # -----------------------------
 # FastAPI
 # -----------------------------
 app = FastAPI(title="Maschinenhandbuch", description="Machine Manual Web Application")
+
+# Sanfter DB-Start-Check (crasht nicht, loggt nur)
+@app.on_event("startup")
+def _startup_check():
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql("SELECT 1")
+    except Exception as e:
+        print("DB startup check failed:", repr(e))
 
 # Statische Dateien/Templates (nur lesen – nichts schreiben!)
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -86,6 +95,27 @@ async def qr_png(slug: str, request: Request):
     img.save(buf, format="PNG")
     buf.seek(0)
     return StreamingResponse(buf, media_type="image/png")
+
+# -----------------------------
+# Einmaliger Tabellen-Init (nur zum Setup)
+# -----------------------------
+@app.post("/admin/init-db")
+def init_db(admin_user: str = Depends(verify_admin_credentials)):
+    try:
+        models.Base.metadata.create_all(bind=engine)
+        return {"ok": True, "msg": "Tables created."}
+    except Exception as e:
+        return {"ok": False, "error": repr(e)}
+
+# Optional: Healthcheck
+@app.get("/healthz")
+def healthz():
+    try:
+        with engine.connect() as conn:
+            conn.exec_driver_sql("SELECT 1")
+        return {"ok": True}
+    except Exception as e:
+        return {"ok": False, "error": repr(e)}
 
 # -----------------------------
 # Routes
@@ -422,4 +452,5 @@ async def api_create_issue(machine_id: int, issue: schemas.IssueCreate, db: Sess
     return crud.create_issue(db, issue)
 
 if __name__ == "__main__":
+    # nur lokal relevant
     uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True)
